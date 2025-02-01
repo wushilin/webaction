@@ -14,7 +14,7 @@ tasks:
       - date
   - name: "Ping"
     command:
-      - "/sbin/ping"
+      - "/usr/bin/ping"
       - "-c"
       - "%Count"
       - "%Host"
