@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"bytes"
 	"errors"
 	"context"
@@ -13,12 +14,13 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
+	"fmt"
 	"github.com/lithammer/shortuuid/v4"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
+        Listen string `yaml:"listen"`
 	Auth  AuthConfig `yaml:"auth"`
 	Tasks []Task     `yaml:"tasks"`
 }
@@ -58,7 +60,7 @@ var (
 )
 
 func loadConfig() {
-	data, err := os.ReadFile("config.yaml")
+	data, err := os.ReadFile(getConfigFilePath())
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -248,8 +250,8 @@ func main() {
 	http.HandleFunc("/task", middlewares(taskForm))
 	http.HandleFunc("/execute", middlewares(executeTask))
 
-	log.Println("Server running on http://localhost:8181")
-	err := http.ListenAndServe(":8181", nil)
+	log.Printf("Server running on http://%s\n", config.Listen)
+	err := http.ListenAndServe(config.Listen, nil)
 	log.Println(err)
 }
 
@@ -332,4 +334,53 @@ func loadTemplates(name string) *template.Template {
 
 func uuid() string {
 	return shortuuid.New()
+}
+
+func getConfigFilePath() string {
+	// Define flags for long and short versions
+	configPath := flag.String("config", "", "Path to the config file (default to config.yaml/config.yml) refer to config.yaml.example for details")
+	configPathShort := flag.String("c", "", "Short-hand for -config")
+
+	// Custom help message
+	flag.Usage = func() {
+		fmt.Println("Usage: webaction [OPTIONS]")
+		fmt.Println("Options:")
+		flag.PrintDefaults()
+	}
+
+	// Parse the command-line arguments
+	flag.Parse()
+
+	// Prioritize the short flag if both are provided
+	configFile := *configPathShort
+	if configFile == "" {
+		configFile = *configPath
+	}
+
+	// If a config file is provided via flags, check if it exists
+	if configFile != "" {
+		if _, err := os.Stat(configFile); err == nil {
+			return configFile
+		}
+		fmt.Printf("Warning: Config file '%s' not found, falling back to defaults.\n", configFile)
+	}
+
+	// Default to "./config.yaml" if it exists
+	if _, err := os.Stat("./config.yaml"); err == nil {
+		fmt.Printf("Default using ./config.yaml as config file\n")
+		return "./config.yaml"
+	}
+
+	// Default to "./config.yml" if it exists
+	if _, err := os.Stat("./config.yml"); err == nil {
+		fmt.Printf("Default using ./config.yml as config file\n")
+		return "./config.yml"
+	}
+
+	// If no config file is found, print an error and exit
+	fmt.Println("Error: No valid config file found.")
+	flag.Usage()
+	os.Exit(1) // Exit the program
+
+	return "" // This won't be reached, but ensures function signature consistency
 }
