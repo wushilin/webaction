@@ -8,7 +8,7 @@
 <h3>Input Task Parameters below</h3>
 {{ end }}
 <hr/>
-<form method="POST" action="/execute">
+<form method="POST" action="/execute" id="executeForm">
         <input type="hidden" name="task" value="{{.Task.Name}}">
     {{range .Params}}
         <div class="mb-3">
@@ -18,9 +18,17 @@
     {{end}}
         <input type="hidden" name="{{ .CSRFFieldName }}" value="{{ .csrfField }}">
 
-    <button type="submit" class="btn btn-primary">Execute</button>
+    <button id="submitButton" class="btn btn-primary" onclick="javascript:clickSubmit()">Execute</button>
 </form>
 <br>
+<script>
+    function clickSubmit() {
+        document.getElementById("submitButton").innerText="Executing...";
+        document.getElementById("submitButton").disabled = true;
+        document.getElementById("executeForm").submit()
+    }
+
+</script>
 <a href="/" class="btn btn-secondary">Back to Task List</a>
 {{end}}
 
