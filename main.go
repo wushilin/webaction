@@ -1,11 +1,12 @@
 package main
 
 import (
-	"flag"
 	"bytes"
-	"errors"
 	"context"
 	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -14,15 +15,18 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"fmt"
+
+	"github.com/gorilla/csrf"
+
 	"github.com/lithammer/shortuuid/v4"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-        Listen string `yaml:"listen"`
-	Auth  AuthConfig `yaml:"auth"`
-	Tasks []Task     `yaml:"tasks"`
+	CSRFSecret string     `yaml:"csrf_secret"`
+	Listen     string     `yaml:"listen"`
+	Auth       AuthConfig `yaml:"auth"`
+	Tasks      []Task     `yaml:"tasks"`
 }
 
 type TaskStats struct {
@@ -56,7 +60,7 @@ var (
 	taskListTemplate   = loadTemplates("tasklist.html")
 	taskFormTemplate   = loadTemplates("taskform.html")
 	taskResultTemplate = loadTemplates("result.html")
-	defaultTimeout = 15 * time.Second
+	defaultTimeout     = 15 * time.Second
 )
 
 func loadConfig() {
@@ -116,8 +120,10 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 func listTasks(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s Listing tasks. %d tasks found", r.Context().Value("request_id").(string), len(config.Tasks))
 	taskListTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-		"Title": "Task List",
-		"Tasks": config.Tasks,
+		"Title":          "Task List",
+		csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
+		"CSRFFieldName":  "gorilla.csrf.Token",
+		"Tasks":          config.Tasks,
 	})
 }
 
@@ -190,14 +196,16 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 		stats.Ended = time.Now()
 		stats.Duration = stats.Ended.Sub(stats.Started)
 		stats.ExitCode = -1
-                stats.StdOut = defaultString("")
+		stats.StdOut = defaultString("")
 		stats.StdErr = defaultString("")
 		stats.Error = errors.New("Can't start process")
 		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			"Title": "Execute Task",
-			"Task": selectedTask.Name,
-			"Result": stats,
-		});
+			"Title":          "Execute Task",
+			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
+			"CSRFFieldName":  "gorilla.csrf.Token",
+			"Task":           selectedTask.Name,
+			"Result":         stats,
+		})
 		return
 	}
 
@@ -215,9 +223,11 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 		stats.StdErr = defaultString(stderr.String())
 		stats.Error = errors.New("Timeout killed")
 		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			"Title":  "Execute Task",
-			"Task":   selectedTask.Name,
-			"Result": stats,
+			"Title":          "Execute Task",
+			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
+			"CSRFFieldName":  "gorilla.csrf.Token",
+			"Task":           selectedTask.Name,
+			"Result":         stats,
 		})
 	case err := <-done:
 		stats.Ended = time.Now()
@@ -230,9 +240,11 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 			stats.Error = err
 		}
 		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			"Title":  "Execute Task",
-			"Task":   selectedTask.Name,
-			"Result": stats,
+			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
+			"CSRFFieldName":  "gorilla.csrf.Token",
+			"Title":          "Execute Task",
+			"Task":           selectedTask.Name,
+			"Result":         stats,
 		})
 	}
 }
@@ -245,13 +257,20 @@ func defaultString(input string) string {
 }
 func main() {
 	loadConfig()
+	CSRF := csrf.Protect(
+		[]byte(config.CSRFSecret), // Load secret from environment variable
+		csrf.Secure(true),         // Set to true in production (HTTPS only)
+		csrf.HttpOnly(true),       // Prevent client-side JavaScript access
+		csrf.Path("/"),            // Token is valid for all paths
+	)
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/", middlewares(listTasks))
-	http.HandleFunc("/task", middlewares(taskForm))
-	http.HandleFunc("/execute", middlewares(executeTask))
+	mux.HandleFunc("/", middlewares(listTasks))
+	mux.HandleFunc("/task", middlewares(taskForm))
+	mux.HandleFunc("/execute", middlewares(executeTask))
 
 	log.Printf("Server running on http://%s\n", config.Listen)
-	err := http.ListenAndServe(config.Listen, nil)
+	err := http.ListenAndServe(config.Listen, CSRF(mux))
 	log.Println(err)
 }
 
@@ -278,17 +297,18 @@ func taskForm(w http.ResponseWriter, r *http.Request) {
 	// Extract parameter names from the command
 	params := extractParamsFromCommandList(selectedTask.Command)
 
-
 	timeout := defaultTimeout
 	if selectedTask.Timeout > 0 {
 		timeout = time.Duration(selectedTask.Timeout) * time.Second
 	}
 	// Render the form with the parameter names
 	taskFormTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-		"Title":  "Execute Task",
-		"Task":   selectedTask,
-		"Timeout": timeout,
-		"Params": params,
+		csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
+		"CSRFFieldName":  "gorilla.csrf.Token",
+		"Title":          "Execute Task",
+		"Task":           selectedTask,
+		"Timeout":        timeout,
+		"Params":         params,
 	})
 }
 
