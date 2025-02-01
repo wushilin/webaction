@@ -45,12 +45,19 @@ tasks:
 ```
 
 [1] Web Action portal/console bind address
+
 [2] Cross Site Request Foregery secret. Define any string that is strong enough
+
 [3] Web console username (basic auth)
+
 [4] Web console password (basic auth)
+
 [5] An example config that shows a task no argument. %%Test -> Literal string of "%Test". This shows how to pass %xxx as argument
+
 [6] Another example config that shows a task without argument. [5] and [6] are sharing default timeout of 15 seconds
+
 [7] A custom task that takes 2 argument Count and Host. Users will have to enter them on the web UI to run it
+
 [8] A custom task that takes 1 argument Message, and with a custom timeout setting (2 seconds)
 
 # Running
