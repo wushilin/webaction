@@ -277,7 +277,7 @@ func main() {
 func taskForm(w http.ResponseWriter, r *http.Request) {
 	request_id := r.Context().Value("request_id").(string)
 	taskName := r.FormValue("task")
-	log.Printf("%s redndering task form with name `%s`\n", request_id, taskName)
+	log.Printf("%s rendering task form with name `%s`\n", request_id, taskName)
 	var selectedTask *Task
 
 	// Find the selected task by its name
@@ -296,7 +296,6 @@ func taskForm(w http.ResponseWriter, r *http.Request) {
 
 	// Extract parameter names from the command
 	params := extractParamsFromCommandList(selectedTask.Command)
-
 	timeout := defaultTimeout
 	if selectedTask.Timeout > 0 {
 		timeout = time.Duration(selectedTask.Timeout) * time.Second

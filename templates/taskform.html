@@ -2,7 +2,11 @@
 <h2>Execute Task: {{.Task.Name}}</h2>
 <span> Allowed Timeout: {{.Timeout}}</span>
 <br/>
+{{ if not .Params}}
+<h3>This task has no parameters</h3>
+{{ else }}
 <h3>Input Task Parameters below</h3>
+{{ end }}
 <hr/>
 <form method="POST" action="/execute">
         <input type="hidden" name="task" value="{{.Task.Name}}">
