@@ -12,6 +12,7 @@
             <input type="text" class="form-control" id="{{.}}" name="{{.}}" placeholder="Enter {{.}}">
         </div>
     {{end}}
+        <input type="hidden" name="{{ .CSRFFieldName }}" value="{{ .csrfField }}">
 
     <button type="submit" class="btn btn-primary">Execute</button>
 </form>
