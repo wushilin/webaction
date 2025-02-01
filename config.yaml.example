@@ -1,0 +1,36 @@
+auth:
+  username: admin
+  password: password
+tasks:
+  - name: "No Argument static example"
+    command:
+      - /bin/echo
+      - -n
+      - "%%Test"
+  - name: "Date"
+    command:
+      - date
+  - name: "Ping"
+    command:
+      - "/sbin/ping"
+      - "-c"
+      - "%Count"
+      - "%Host"
+    timeout: 10
+
+  - name: "Echo"
+    command:
+      - "/bin/echo"
+      - "%Message"
+    timeout: 2
+
+  - name: "Sleep"
+    command:
+      - sleep
+      - "%DurationInSeconds"
+    timeout: 4
+  - name: "Test DD"
+    command:
+      - sh
+      - "-c"
+      - "dd if=/dev/urandom bs=12 count=1 | base64"

@@ -1,0 +1,21 @@
+{{define "content"}}
+<h2>Execute Task: {{.Task.Name}}</h2>
+<span> Allowed Timeout: {{.Timeout}}</span>
+<br/>
+<h3>Input Task Parameters below</h3>
+<hr/>
+<form method="POST" action="/execute">
+        <input type="hidden" name="task" value="{{.Task.Name}}">
+    {{range .Params}}
+        <div class="mb-3">
+            <label for="{{.}}" class="form-label">{{.}}</label>
+            <input type="text" class="form-control" id="{{.}}" name="{{.}}" placeholder="Enter {{.}}">
+        </div>
+    {{end}}
+
+    <button type="submit" class="btn btn-primary">Execute</button>
+</form>
+<br>
+<a href="/" class="btn btn-secondary">Back to Task List</a>
+{{end}}
+

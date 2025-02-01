@@ -1,0 +1,10 @@
+{{define "content"}}
+<h2>Available Tasks</h2>
+<div class="list-group">
+    {{range .Tasks}}
+        <a href="/task?task={{.Name}}" class="list-group-item list-group-item-action task-button">
+            {{.Name}}
+        </a>
+    {{end}}
+</div>
+{{end}}

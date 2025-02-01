@@ -1,0 +1,33 @@
+{{define "content"}}
+<h2>Task: {{.Task}}</h2>
+<h4>Stdout</h4>
+<div class="output">{{.Result.StdOut}}</div>
+<br>
+<h4>Stderr</h4>
+<div class="output">{{.Result.StdErr}}</div>
+<br>
+<h4>Stats</h4>
+<table class="table">
+  <tr>
+    <td>Exit Code</td>
+    <td>{{.Result.ExitCode}}</td>
+  </tr>
+  <tr>
+    <td>Start Time</td>
+    <td>{{.Result.Started}}</td>
+  </tr>
+  <tr>
+    <td>End Time</td>
+    <td>{{.Result.Ended}}</td>
+  </tr>
+  <tr>
+    <td>Duration</td>
+    <td>{{.Result.Duration}}</td>
+  </tr>
+  <tr>
+    <td>Error</td>
+    <td>{{.Result.Error}}</td>
+  </tr>
+</table>
+<a href="/" class="btn btn-secondary">Back to Task List</a>
+{{end}}
