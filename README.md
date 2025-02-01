@@ -64,3 +64,14 @@ Run with
 
 Access your browser and open http://your-ip:8181 to trigger your tasks
 
+# Show case
+## Task list page
+<img width="1728" alt="image" src="https://github.com/user-attachments/assets/9e3946a0-60af-4bc6-bb33-03312c7c8afa" />
+
+## Run Task page
+<img width="1728" alt="image" src="https://github.com/user-attachments/assets/94aa4fa8-7a06-4810-b023-1b18bec7fec5" />
+
+## Task Result Page
+<img width="1727" alt="image" src="https://github.com/user-attachments/assets/5f115f58-7c6d-4460-8433-b9d45f44bb4f" />
+
+# Enjoy
