@@ -90,4 +90,7 @@ Run with
 ```
 Access your browser and open http://your-ip:8181 to trigger your tasks
 
+# NOTE
+
+If you changed template (for whatever reason), you need to rebuild the binary as templates are packaged into the binary automatically.
 # Enjoy
