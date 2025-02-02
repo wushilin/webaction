@@ -128,8 +128,14 @@ func requestId(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func injectServerVersion(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+	        w.Header().Set("Server-Version", "WebAction/" + version)
+		next(w, r)
+	}
+}
 func middlewares(next http.HandlerFunc) http.HandlerFunc {
-	return requestId(requestTimer(basicAuth(debugUser(next))))
+	return requestId(injectServerVersion(requestTimer(basicAuth(debugUser(next)))))
 }
 
 func debugUser(next http.HandlerFunc) http.HandlerFunc {
