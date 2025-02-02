@@ -34,7 +34,9 @@ Refer to `config.yaml.example` for more details
 
 ```yaml
 listen: 0.0.0.0:8181                                    [1]
-csrf_secret: password01                                 [2]
+csrf:
+  secret: password01                                    [2]
+  https_only: true
 auth:
   username: admin                                       [3]
   password: password                                    [4]
