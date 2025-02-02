@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -59,7 +58,8 @@ type Param struct {
 
 var (
 	config Config
-
+	//go:embed .version
+	version string
 	//go:embed templates
 	templatesStore     embed.FS
 	favicon            []byte = MustLoadObjectByName("favicon.ico")
@@ -303,10 +303,11 @@ func defaultString(input string) string {
 	return input
 }
 func main() {
+	log.Printf("version %s\n", version)
 	what, _ := templatesStore.ReadDir("templates")
 
 	for i, next := range what {
-		fmt.Printf("Loaded embedded asset item index -> %d name -> %s\n", i, next.Name())
+		log.Printf("  Found asset %d -> %s\n", i, next.Name())
 	}
 	loadConfig()
 	CSRF := csrf.Protect(
