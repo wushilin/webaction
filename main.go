@@ -23,11 +23,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Key string
 type Config struct {
-	CSRFSecret string     `yaml:"csrf_secret"`
-	Listen     string     `yaml:"listen"`
-	Auth       AuthConfig `yaml:"auth"`
-	Tasks      []Task     `yaml:"tasks"`
+	CSRFSetting CSRF       `yaml:"csrf"`
+	Listen      string     `yaml:"listen"`
+	Auth        AuthConfig `yaml:"auth"`
+	Tasks       []Task     `yaml:"tasks"`
+}
+
+type CSRF struct {
+	Secret    string `yaml:"secret"`
+	HttpsOnly bool   `yaml:"https_only"`
 }
 
 type TaskStats struct {
@@ -123,14 +129,14 @@ func loadConfig() {
 
 func requestId(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), "request_id", uuid())
+		ctx := context.WithValue(r.Context(), Key("request_id"), uuid())
 		next(w, r.WithContext(ctx))
 	}
 }
 
 func injectServerVersion(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-	        w.Header().Set("Server-Version", "WebAction/" + version)
+		w.Header().Set("Server-Version", "WebAction/"+version)
 		next(w, r)
 	}
 }
@@ -140,8 +146,8 @@ func middlewares(next http.HandlerFunc) http.HandlerFunc {
 
 func debugUser(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		request_id := r.Context().Value("request_id").(string)
-		user := r.Context().Value("user").(string)
+		request_id := r.Context().Value(Key("request_id")).(string)
+		user := r.Context().Value(Key("user")).(string)
 		log.Printf("%s authenticated user is `%s`\n", request_id, user)
 		next(w, r)
 	}
@@ -149,8 +155,8 @@ func debugUser(next http.HandlerFunc) http.HandlerFunc {
 func requestTimer(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		request_id := r.Context().Value("request_id").(string)
-		ctx := context.WithValue(r.Context(), "startTime", start)
+		request_id := r.Context().Value(Key("request_id")).(string)
+		ctx := context.WithValue(r.Context(), Key("startTime"), start)
 		log.Printf("%s started\n", request_id)
 		next(w, r.WithContext(ctx))
 		duration := time.Since(start)
@@ -165,23 +171,21 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "user", user)
+		ctx := context.WithValue(r.Context(), Key("user"), user)
 		next(w, r.WithContext(ctx))
 	}
 }
 
 func listTasks(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s Listing tasks. %d tasks found", r.Context().Value("request_id").(string), len(config.Tasks))
-	taskListTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-		"Title":          "Task List",
-		csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
-		"CSRFFieldName":  "gorilla.csrf.Token",
-		"Tasks":          config.Tasks,
+	log.Printf("%s Listing tasks. %d tasks found", r.Context().Value(Key("request_id")).(string), len(config.Tasks))
+	renderTemplate(w, r, taskListTemplate, map[string]interface{}{
+		"Title": "Task List",
+		"Tasks": config.Tasks,
 	})
 }
 
 func executeTask(w http.ResponseWriter, r *http.Request) {
-	request_id := r.Context().Value("request_id").(string)
+	request_id := r.Context().Value(Key("request_id")).(string)
 	taskName := r.FormValue("task")
 	log.Printf("%s Executing task with name `%s`", request_id, taskName)
 	var selectedTask *Task
@@ -251,13 +255,11 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 		stats.ExitCode = -1
 		stats.StdOut = defaultString("")
 		stats.StdErr = defaultString("")
-		stats.Error = errors.New("Can't start process")
-		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			"Title":          "Execute Task",
-			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
-			"CSRFFieldName":  "gorilla.csrf.Token",
-			"Task":           selectedTask.Name,
-			"Result":         stats,
+		stats.Error = errors.New("can't start process")
+		renderTemplate(w, r, taskResultTemplate, map[string]interface{}{
+			"Title":  "Execute Task",
+			"Task":   selectedTask.Name,
+			"Result": stats,
 		})
 		return
 	}
@@ -274,13 +276,11 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 		stats.ExitCode = cmd.ProcessState.ExitCode()
 		stats.StdOut = defaultString(stdout.String())
 		stats.StdErr = defaultString(stderr.String())
-		stats.Error = errors.New("Timeout killed")
-		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			"Title":          "Execute Task",
-			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
-			"CSRFFieldName":  "gorilla.csrf.Token",
-			"Task":           selectedTask.Name,
-			"Result":         stats,
+		stats.Error = errors.New("timeout killed")
+		renderTemplate(w, r, taskResultTemplate, map[string]interface{}{
+			"Title":  "Execute Task",
+			"Task":   selectedTask.Name,
+			"Result": stats,
 		})
 	case err := <-done:
 		stats.Ended = time.Now()
@@ -292,12 +292,10 @@ func executeTask(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			stats.Error = err
 		}
-		taskResultTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-			csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
-			"CSRFFieldName":  "gorilla.csrf.Token",
-			"Title":          "Execute Task",
-			"Task":           selectedTask.Name,
-			"Result":         stats,
+		renderTemplate(w, r, taskResultTemplate, map[string]interface{}{
+			"Title":  "Execute Task",
+			"Task":   selectedTask.Name,
+			"Result": stats,
 		})
 	}
 }
@@ -308,6 +306,19 @@ func defaultString(input string) string {
 	}
 	return input
 }
+
+func renderTemplate(w http.ResponseWriter, r *http.Request, tmpl *template.Template, data map[string]interface{}) {
+	if user, ok := r.Context().Value(Key("user")).(string); ok {
+		data["User"] = user
+	}
+	data[csrf.TemplateTag] = csrf.Token(r) // Embed CSRF token
+	data["CSRFFieldName"] = "gorilla.csrf.Token"
+
+	// Render the template
+	if err := tmpl.ExecuteTemplate(w, "common.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 func main() {
 	log.Printf("version %s\n", version)
 	what, _ := templatesStore.ReadDir("templates")
@@ -317,10 +328,10 @@ func main() {
 	}
 	loadConfig()
 	CSRF := csrf.Protect(
-		[]byte(config.CSRFSecret), // Load secret from environment variable
-		csrf.Secure(true),         // Set to true in production (HTTPS only)
-		csrf.HttpOnly(true),       // Prevent client-side JavaScript access
-		csrf.Path("/"),            // Token is valid for all paths
+		[]byte(config.CSRFSetting.Secret),         // Load secret from environment variable
+		csrf.Secure(config.CSRFSetting.HttpsOnly), // Set to true in production (HTTPS only)
+		csrf.HttpOnly(true),                       // Prevent client-side JavaScript access
+		csrf.Path("/"),                            // Token is valid for all paths
 	)
 	mux := http.NewServeMux()
 
@@ -338,7 +349,7 @@ func main() {
 }
 
 func taskForm(w http.ResponseWriter, r *http.Request) {
-	request_id := r.Context().Value("request_id").(string)
+	request_id := r.Context().Value(Key("request_id")).(string)
 	taskName := r.FormValue("task")
 	log.Printf("%s rendering task form with name `%s`\n", request_id, taskName)
 	var selectedTask *Task
@@ -364,13 +375,11 @@ func taskForm(w http.ResponseWriter, r *http.Request) {
 		timeout = time.Duration(selectedTask.Timeout) * time.Second
 	}
 	// Render the form with the parameter names
-	taskFormTemplate.ExecuteTemplate(w, "common.html", map[string]interface{}{
-		csrf.TemplateTag: csrf.Token(r), // Embed CSRF token
-		"CSRFFieldName":  "gorilla.csrf.Token",
-		"Title":          "Execute Task",
-		"Task":           selectedTask,
-		"Timeout":        timeout,
-		"Params":         params,
+	renderTemplate(w, r, taskFormTemplate, map[string]interface{}{
+		"Title":   "Execute Task",
+		"Task":    selectedTask,
+		"Timeout": timeout,
+		"Params":  params,
 	})
 }
 
