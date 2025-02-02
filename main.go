@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"embed"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -56,12 +58,57 @@ type Param struct {
 }
 
 var (
-	config             Config
-	taskListTemplate   = loadTemplates("tasklist.html")
-	taskFormTemplate   = loadTemplates("taskform.html")
-	taskResultTemplate = loadTemplates("result.html")
-	defaultTimeout     = 15 * time.Second
+	config Config
+
+	//go:embed templates
+	templatesStore     embed.FS
+	favicon            []byte = MustLoadObjectByName("favicon.ico")
+	masterTemplate            = MustLoadTemplateByName("common.html")
+	taskListTemplate          = mergeTemplate(masterTemplate, "tasklist.html")
+	taskFormTemplate          = mergeTemplate(masterTemplate, "taskform.html")
+	taskResultTemplate        = mergeTemplate(masterTemplate, "result.html")
+	defaultTimeout            = 15 * time.Second
 )
+
+func loadObjectByName(name string) ([]byte, error) {
+	return templatesStore.ReadFile(name)
+}
+
+func MustLoadObjectByName(name string) []byte {
+	data, err := loadObjectByName("templates/" + name)
+	if err != nil {
+		log.Printf("Failed to load object `%s`, cause: %s", name, err)
+		panic(err)
+	}
+	return data
+}
+
+func MustLoadTemplateByName(name string) *template.Template {
+	data, err := loadObjectByName("templates/" + name)
+	if err != nil {
+		log.Printf("Error loading template by name `%s`: %s", name, err)
+		panic(err)
+	}
+	var result = template.New(name)
+	result, err = result.Parse(string(data))
+	if err != nil {
+		log.Printf("Unable to parse template for name `%s`", name)
+		panic(err)
+	}
+	return result
+}
+func mergeTemplate(base *template.Template, name string) *template.Template {
+	baseClone, err := base.Clone()
+	if err != nil {
+		panic("unable to clone Master Template, cause: " + err.Error())
+	}
+	data := MustLoadObjectByName(name)
+	result, err := baseClone.Parse(string(data))
+	if err != nil {
+		panic("unable to merge Master Template with template name " + name + ", cause: " + err.Error())
+	}
+	return result
+}
 
 func loadConfig() {
 	data, err := os.ReadFile(getConfigFilePath())
@@ -256,6 +303,11 @@ func defaultString(input string) string {
 	return input
 }
 func main() {
+	what, _ := templatesStore.ReadDir("templates")
+
+	for i, next := range what {
+		fmt.Printf("Loaded embedded asset item index -> %d name -> %s\n", i, next.Name())
+	}
 	loadConfig()
 	CSRF := csrf.Protect(
 		[]byte(config.CSRFSecret), // Load secret from environment variable
@@ -268,6 +320,10 @@ func main() {
 	mux.HandleFunc("/", middlewares(listTasks))
 	mux.HandleFunc("/task", middlewares(taskForm))
 	mux.HandleFunc("/execute", middlewares(executeTask))
+	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/x-icon")
+		w.Write(favicon)
+	})
 
 	log.Printf("Server running on http://%s\n", config.Listen)
 	err := http.ListenAndServe(config.Listen, CSRF(mux))
@@ -342,13 +398,6 @@ func toJson(arg interface{}) string {
 		panic(err)
 	}
 	return string(jsonBytes)
-}
-
-func loadTemplates(name string) *template.Template {
-	tmpl := template.New("")
-	//, "templates/taskform.html", "templates/result.html"
-	tmpl = template.Must(tmpl.ParseFiles("templates/common.html", "templates/"+name))
-	return tmpl
 }
 
 func uuid() string {
