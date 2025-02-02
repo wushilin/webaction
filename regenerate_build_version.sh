@@ -1,7 +1,7 @@
 #!/bin/sh
 
 BRANCH=`git branch | awk '{print $2}'`
-BUILD_NUMBER=`tr -dc a-z0-9 </dev/urandom | head -c 13; echo`
+BUILD_NUMBER=`git rev-parse HEAD`
 DATE=`date +'%Y-%m-%dT%H:%M:%S %Z'`
-VERSION="$BUILD_NUMBER built $DATE branch $BRANCH"
+VERSION="$BUILD_NUMBER::$DATE::$BRANCH"
 echo -n $VERSION > .version
